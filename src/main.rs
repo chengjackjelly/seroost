@@ -1,5 +1,5 @@
 use std::fs::{self, File};
-use std::path::{Path};
+use std::path::{Path,PathBuf};
 use xml::reader::{XmlEvent, EventReader};
 use xml::common::{Position, TextPosition};
 use std::env;
@@ -9,6 +9,7 @@ use std::str;
 use std::io::{BufReader, BufWriter};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use zip::ZipArchive;
 
 mod model;
 use model::*;
@@ -21,7 +22,46 @@ fn parse_entire_txt_file(file_path: &Path) -> Result<String, ()> {
         eprintln!("ERROR: coult not open file {file_path}: {err}", file_path = file_path.display());
     })
 }
+fn parse_entire_pptx_file(file_path :&Path) -> Result<String,()> {
+    let file = File::open(file_path).map_err(|err| {
+        eprintln!("ERROR: could not open file {file_path}: {err}", file_path = file_path.display());
+    })?;
 
+    let mut content = String::new();
+    let mut zipper = ZipArchive::new(&file).map_err(|err|{
+
+        eprintln!("ERROR: could not zip the file {file_path}: {err}", file_path = file_path.display());
+    })?;
+    for i in 0..zipper.len(){
+        let zip_file= zipper.by_index(i).map_err(|err|{
+            eprint!("ERROR: could not zip {i}th file in {file_path} : {err}",file_path=file_path.display());
+        })?;
+        let zipfile_path=PathBuf::from(zip_file.name());
+        if zipfile_path.starts_with("ppt/slides"){
+            if zipfile_path.extension().unwrap_or_else(|| "".as_ref()) != "xml"{
+                continue;
+            }
+   
+        let er = EventReader::new(zip_file);
+        for event in er.into_iter(){
+            let event = event.map_err(|err| {
+            let TextPosition {row, column} = err.position();
+            let msg = err.msg();
+            eprintln!("{zipfile_path}:{row}:{column}: ERROR: {msg}", zipfile_path = zipfile_path.display());
+        })?;
+
+        if let XmlEvent::Characters(text) = event {
+            content.push_str(&text);
+            content.push(' ');
+        }
+        }
+    }
+    }
+
+    Ok(content)
+
+    
+}
 fn parse_entire_pdf_file(file_path: &Path) -> Result<String, ()> {
     use poppler::Document;
     use std::io::Read;
@@ -80,6 +120,7 @@ fn parse_entire_file_by_extension(file_path: &Path) -> Result<String, ()> {
     })?.to_string_lossy();
     match extension.as_ref() {
         "xhtml" | "xml" => parse_entire_xml_file(file_path),
+        "pptx" => parse_entire_pptx_file(file_path),
         // TODO: specialized parser for markdown files
         "txt" | "md" => parse_entire_txt_file(file_path),
         "pdf" => parse_entire_pdf_file(file_path),
