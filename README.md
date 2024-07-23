@@ -8,3 +8,10 @@
 $ cargo run serve ./folder/
 $ iexplore.exe http://localhost:6969/
 ```
+
+## TODO
+
+- only show the file that contain the searching term
+- search result should be clickable -> easy to open it ? ( is it possible to do it inside wsl )
+- Hot reloading?
+- windows executable?
