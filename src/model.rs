@@ -49,7 +49,9 @@ impl Model {
             }
             // TODO: investigate the sources of NaN
             if !rank.is_nan() {
-                result.push((path.clone(), rank));
+                if rank != 0.0 {
+                    result.push((path.clone(), rank));
+                }
             }
         }
         result.sort_by(|(_, rank1), (_, rank2)| rank1.partial_cmp(rank2).expect(&format!("{rank1} and {rank2} are not comparable")));
